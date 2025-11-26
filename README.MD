@@ -1,148 +1,91 @@
-# 🐍 Advanced Snake Game
+# 🐍 Snake Eter
 
-A feature-rich, terminal-based Snake game built with Python and curses library.
+Terminal-first Snake written with Python + `curses`. The codebase stays compact,
+yet the gameplay layers in just enough systems to feel modern—dynamic
+obstacles, bonus fruit, adaptive speed, pause/resume, and persistent high
+scores.
 
-## 🎮 Features
+## 🎮 Feature Highlights
 
-### Core Gameplay
-- **Classic Snake mechanics** with modern enhancements
-- **Multiple difficulty levels** (Easy, Medium, Hard)
-- **Level progression** - game gets harder as you advance
-- **High score tracking** across sessions
+- **Three handcrafted difficulties** (Calm, Classic, Turbo) that control base
+  speed + obstacle count.
+- **Adaptive arena**: every 50 points the game injects a fresh obstacle and
+  briefly bumps the tempo.
+- **Bonus fruit**: `$` pieces appear randomly, rewarding +15 points and a
+  subtle speed boost if eaten before they fade.
+- **Pause-anytime loop**: hit `P` to freeze the board, resume or exit without
+  losing progress.
+- **Persistent highscores** saved at `~/.snake_eter_highscore`.
 
-### Advanced Features
-- **Powerup system**: Speed boost, invincibility, double points
-- **Obstacle avoidance** - randomly placed barriers
-- **Colorful UI** with Unicode symbols and proper styling
-- **Pause functionality** - press 'P' to pause/resume
+## 🚀 Installation
 
-### Visual Enhancements
-- **Color-coded elements**: Snake, food, obstacles, powerups
-- **Unicode symbols**: Snake head (●), body (○), food (🍎), obstacles (■)
-- **Powerup icons**: ⚡ (speed), 🛡️ (invincible), 2️⃣ (double points)
-- **Professional menu system** with navigation
+### Requirements
 
-## 🚀 Installation & Setup
-
-### Prerequisites
-- Python 3.6+
-- Linux/macOS terminal (Windows requires additional setup)
+- Python 3.8+
+- A Unix-like terminal (Linux, macOS, WSL). Windows terminal users should run
+  it via WSL to get a working `curses` stack.
 
 ### Quick Start
+
 ```bash
-# Clone the repository
 git clone https://github.com/jjaspreetsingh/snake-eter.git
 cd snake-eter
-
-# Make the game executable
 chmod +x snake_game.py
-
-# Run the game
-./snake_game.py
+./snake_game.py          # or: python3 snake_game.py
 ```
 
-### System-wide Installation
+### Optional: install globally
+
 ```bash
-# Create a symbolic link in your PATH
 mkdir -p ~/.local/bin
-ln -s $(pwd)/snake_game.py ~/.local/bin/snake
-
-# Add to PATH if not already (add to ~/.bashrc or ~/.zshrc)
+ln -s "$(pwd)/snake_game.py" ~/.local/bin/snake-eter
 export PATH="$HOME/.local/bin:$PATH"
-
-# Now run from anywhere:
-snake
+snake-eter
 ```
 
-## 🎯 How to Play
+## 🕹️ How to Play
 
-### Controls
-- **Arrow Keys** (↑↓←→): Move the snake
-- **P**: Pause/Resume the game
-- **Q**: Quit to main menu
-- **Enter/Return**: Select menu options
+- **Menus**: use ↑/↓ (or `j`/`k`) and press Enter.
+- **In-game controls**
+  - `↑ ↓ ← →` or `WASD` to steer
+  - `P` pauses/resumes
+  - `Q` leaves the current round/menu
+- **Goals**
+  1. Eat `*` food to grow + score 10 points.
+  2. Snag `$` bonus fruit before it fades to gain 15 points and higher tempo.
+  3. Avoid walls (`|`, `-`, `+`), your tail, and `#` obstacles.
 
-### Game Rules
-1. **Eat food** (🍎) to grow and earn points
-2. **Avoid collisions** with walls, yourself, and obstacles (■)
-3. **Collect powerups** for temporary advantages
-4. **Level up** every 10 points - increases difficulty
+## 🧠 Mechanics
 
-### Powerups
-- **⚡ Speed Boost**: Temporarily increases snake speed
-- **🛡️ Invincibility**: Immune to collisions for 10 seconds
-- **2️⃣ Double Points**: Doubles points from food + bonus points
-
-## 🏆 Difficulty Levels
-
-| Level | Speed | Obstacles | Description |
-|-------|-------|-----------|-------------|
-| Easy | 150ms | 3 | Slower pace, fewer obstacles |
-| Medium | 100ms | 5 | Balanced challenge |
-| Hard | 50ms | 8 | Fast-paced, many obstacles |
-
-## 🛠️ Technical Details
-
-### Dependencies
-- **Python 3.6+**
-- **curses library** (included in Python standard library)
-- **Terminal with Unicode support**
-
-### File Structure
-```
-snake-eter/
-├── snake_game.py    # Main game executable
-├── README.MD        # This documentation
-└── (future assets)
-```
-
-### Compatibility
-- ✅ **Linux**: Fully supported
-- ✅ **macOS**: Fully supported
-- ⚠️ **Windows**: Requires Windows Subsystem for Linux (WSL) or additional setup
+| System        | Description                                                      |
+|---------------|------------------------------------------------------------------|
+| Difficulty    | Sets base tick speed plus starting obstacle count.               |
+| Leveling      | Every 50 pts adds an obstacle + trims tick speed (to 30 ms min). |
+| Bonus Fruit   | 25 % chance after eating normal food, lasts ~35 ticks.           |
+| Persistence   | Highest score is written to `~/.snake_eter_highscore`.           |
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+| Issue | Fix |
+|-------|-----|
+| `ModuleNotFoundError: _curses` | Install via your package manager: `sudo apt install python3-curses`. |
+| Terminal too small | Ensure at least 30×80 characters; resize and restart. |
+| Unicode glitches | Switch to a UTF‑8 capable emulator (GNOME Terminal, iTerm2, Windows Terminal + WSL). |
 
-**Game doesn't start:**
-```bash
-# Ensure Python 3 is installed
-python3 --version
+## 🧩 Project Layout
 
-# Make script executable
-chmod +x snake_game.py
-
-# Run with Python explicitly if needed
-python3 snake_game.py
 ```
-
-**Unicode characters not displaying:**
-- Ensure your terminal supports UTF-8
-- Try a modern terminal like GNOME Terminal, iTerm2, or Windows Terminal
-
-**Colors not working:**
-- Some terminals may not support curses colors
-- Game will still work in monochrome mode
+snake-eter/
+├── snake_game.py   # the entire game loop + menus
+└── README.MD       # this guide
+```
 
 ## 🤝 Contributing
 
-Feel free to contribute to this project! Here are some areas for improvement:
-- Additional powerups
-- Sound effects
-- Save game functionality
-- Leaderboard system
-- Custom themes
-
-## 📄 License
-
-This project is open source. Feel free to modify and distribute.
-
-## 👨‍💻 Author
-
-**Jaspreet Singh** - [GitHub](https://github.com/jjaspreetsingh)
+Ideas welcome! Feel free to open PRs for new board themes, better input
+handling, multiplayer experiments, etc.
 
 ---
 
-**Enjoy the game! 🎉**
+Enjoy the grind and may your tail stay clear! 🎉
 
