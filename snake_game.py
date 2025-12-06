@@ -17,7 +17,7 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Deque, Optional, Tuple
+from typing import Deque, Optional, Tuple, List
 
 
 SCORE_FILE = Path.home() / ".snake_eter_highscore"
@@ -61,6 +61,9 @@ class SnakeGame:
 
         self.snake: Deque[Tuple[int, int]] = deque()
         self.direction: Direction = RIGHT
+        # Input buffering: queue of desired directions
+        self.move_queue: Deque[Direction] = deque()
+        
         self.food: Tuple[int, int] = (0, 0)
         self.bonus_food: Optional[Tuple[int, int]] = None
         self.bonus_timer = 0
@@ -68,10 +71,20 @@ class SnakeGame:
         self.pending_growth = 0
         self.speed_ms = DIFFICULTIES[self.difficulty_index].speed_ms
 
+        # Color pairs identifiers
+        self.COLOR_BORDER = 1
+        self.COLOR_SNAKE = 2
+        self.COLOR_FOOD = 3
+        self.COLOR_BONUS = 4
+        self.COLOR_OBSTACLE = 5
+        self.COLOR_TEXT = 6
+
     # ------------------------------------------------------------------ menus
     def run(self) -> None:
         curses.curs_set(0)
         self.stdscr.keypad(True)
+        self._init_colors()
+        
         while True:
             choice = self._main_menu()
             if choice == "start":
@@ -81,6 +94,20 @@ class SnakeGame:
             elif choice == "quit":
                 break
 
+    def _init_colors(self) -> None:
+        if curses.has_colors():
+            curses.start_color()
+            curses.use_default_colors()
+            try:
+                curses.init_pair(self.COLOR_BORDER, curses.COLOR_WHITE, -1)
+                curses.init_pair(self.COLOR_SNAKE, curses.COLOR_GREEN, -1)
+                curses.init_pair(self.COLOR_FOOD, curses.COLOR_RED, -1)
+                curses.init_pair(self.COLOR_BONUS, curses.COLOR_CYAN, -1)
+                curses.init_pair(self.COLOR_OBSTACLE, curses.COLOR_WHITE, -1) # or grey if available
+                curses.init_pair(self.COLOR_TEXT, curses.COLOR_YELLOW, -1)
+            except Exception:
+                pass # Fallback to no colors if initiation fails
+
     def _main_menu(self) -> str:
         options = ["Start game", "Difficulty", "Quit"]
         selected = 0
@@ -88,10 +115,13 @@ class SnakeGame:
             self.stdscr.clear()
             title = "SNAKE ETER"
             subtitle = "simple moves, advanced rhythm"
-            self.stdscr.addstr(2, self.sw // 2 - len(title) // 2, title, curses.A_BOLD)
+            
+            c_title = curses.color_pair(self.COLOR_SNAKE) | curses.A_BOLD
+            self.stdscr.addstr(2, self.sw // 2 - len(title) // 2, title, c_title)
             self.stdscr.addstr(3, self.sw // 2 - len(subtitle) // 2, subtitle, curses.A_DIM)
+            
             stats = f"High score: {self.high_score}  |  Current: {DIFFICULTIES[self.difficulty_index].name}"
-            self.stdscr.addstr(5, self.sw // 2 - len(stats) // 2, stats)
+            self.stdscr.addstr(5, self.sw // 2 - len(stats) // 2, stats, curses.color_pair(self.COLOR_TEXT))
 
             for idx, label in enumerate(options):
                 prefix = "➤ " if idx == selected else "  "
@@ -138,6 +168,8 @@ class SnakeGame:
         self.level = 1
         self.pending_growth = 0
         self.direction = RIGHT
+        self.move_queue.clear()
+        
         diff = DIFFICULTIES[self.difficulty_index]
         self.speed_ms = diff.speed_ms
 
@@ -172,37 +204,45 @@ class SnakeGame:
     # ----------------------------------------------------------------- render
     def _draw_world(self) -> None:
         self.stdscr.erase()
+        
+        # colors
+        c_border = curses.color_pair(self.COLOR_BORDER)
+        c_snake = curses.color_pair(self.COLOR_SNAKE)
+        c_food = curses.color_pair(self.COLOR_FOOD)
+        c_bonus = curses.color_pair(self.COLOR_BONUS)
+        c_obstacle = curses.color_pair(self.COLOR_OBSTACLE)
+
         # arena border
         for x in range(self.play_left, self.play_left + self.play_width):
-            self.stdscr.addch(self.play_top, x, "-")
-            self.stdscr.addch(self.play_top + self.play_height - 1, x, "-")
+            self.stdscr.addch(self.play_top, x, "-", c_border)
+            self.stdscr.addch(self.play_top + self.play_height - 1, x, "-", c_border)
         for y in range(self.play_top, self.play_top + self.play_height):
-            self.stdscr.addch(y, self.play_left, "|")
-            self.stdscr.addch(y, self.play_left + self.play_width - 1, "|")
-        self.stdscr.addch(self.play_top, self.play_left, "+")
-        self.stdscr.addch(self.play_top, self.play_left + self.play_width - 1, "+")
-        self.stdscr.addch(self.play_top + self.play_height - 1, self.play_left, "+")
-        self.stdscr.addch(self.play_top + self.play_height - 1, self.play_left + self.play_width - 1, "+")
+            self.stdscr.addch(y, self.play_left, "|", c_border)
+            self.stdscr.addch(y, self.play_left + self.play_width - 1, "|", c_border)
+        self.stdscr.addch(self.play_top, self.play_left, "+", c_border)
+        self.stdscr.addch(self.play_top, self.play_left + self.play_width - 1, "+", c_border)
+        self.stdscr.addch(self.play_top + self.play_height - 1, self.play_left, "+", c_border)
+        self.stdscr.addch(self.play_top + self.play_height - 1, self.play_left + self.play_width - 1, "+", c_border)
 
         # snake
         for idx, (y, x) in enumerate(self.snake):
             char = "@"
-            attr = curses.A_BOLD
+            attr = c_snake | curses.A_BOLD
             if idx != 0:
                 char = "o"
-                attr = curses.A_DIM
+                attr = c_snake # Body is just green
             self.stdscr.addch(y, x, char, attr)
 
         # food & bonus
         fy, fx = self.food
-        self.stdscr.addch(fy, fx, "*", curses.A_BOLD)
+        self.stdscr.addch(fy, fx, "*", c_food | curses.A_BOLD)
         if self.bonus_food:
             by, bx = self.bonus_food
-            self.stdscr.addch(by, bx, "$", curses.A_BLINK)
+            self.stdscr.addch(by, bx, "$", c_bonus | curses.A_BLINK | curses.A_BOLD)
 
         # obstacles
         for y, x in self.obstacles:
-            self.stdscr.addch(y, x, "#")
+            self.stdscr.addch(y, x, "#", c_obstacle)
 
         self._draw_hud()
         self.stdscr.noutrefresh()
@@ -211,38 +251,78 @@ class SnakeGame:
     def _draw_hud(self) -> None:
         diff = DIFFICULTIES[self.difficulty_index]
         info = f"Score {self.score}   Level {self.level}   High {self.high_score}   Mode {diff.name}"
-        self.stdscr.addstr(1, self.sw // 2 - len(info) // 2, info)
+        self.stdscr.addstr(1, self.sw // 2 - len(info) // 2, info, curses.color_pair(self.COLOR_TEXT) | curses.A_BOLD)
         controls = "↑↓←→ move | P pause | Q quit"
         self.stdscr.addstr(self.sh - 2, self.sw // 2 - len(controls) // 2, controls, curses.A_DIM)
         if self.bonus_food:
             bonus_text = f"Bonus fruit fades in {self.bonus_timer} ticks"
-            self.stdscr.addstr(2, self.sw // 2 - len(bonus_text) // 2, bonus_text, curses.A_DIM)
+            self.stdscr.addstr(2, self.sw // 2 - len(bonus_text) // 2, bonus_text, curses.color_pair(self.COLOR_BONUS))
 
     # --------------------------------------------------------------- gameplay
     def _play_loop(self) -> None:
         self._reset_round()
-        self.stdscr.nodelay(True)
+        self.stdscr.timeout(self.speed_ms)
+        
         while True:
             self._draw_world()
-            self.stdscr.timeout(self.speed_ms)
+            
+            # Input handling with buffering
+            # We drain the event queue to prevent lag but capture up to 2 buffered moves
+            start_time = time.time()
+            
+            # Simple loop to consume keys
             key = self.stdscr.getch()
-            if key in (curses.KEY_UP, ord("w")):
-                self._maybe_turn(UP)
-            elif key in (curses.KEY_DOWN, ord("s")):
-                self._maybe_turn(DOWN)
-            elif key in (curses.KEY_LEFT, ord("a")):
-                self._maybe_turn(LEFT)
-            elif key in (curses.KEY_RIGHT, ord("d")):
-                self._maybe_turn(RIGHT)
-            elif key in (ord("p"), ord("P")):
-                if not self._pause_screen():
-                    self._save_high_score()
-                    return
-            elif key in (ord("q"), ord("Q")):
+            if key != -1:
+                self._handle_input(key)
+                
+            # Allow for multiple keys in one frame if the system is fast enough? 
+            # Actually standard curses getch returns -1 if no input.
+            # To be safe, we just process one key per tick or check if more are available?
+            # A simple approach for snake is: read one key. If we want smooth buffering we might want to read all.
+            # Let's read all pending keys
+            while True:
+                try:
+                    # Non-blocking check for more keys?
+                    # getch is already non-blocking due to nodelay/timeout
+                    # We can set nodelay true temporarily
+                    self.stdscr.nodelay(True)
+                    next_key = self.stdscr.getch()
+                    if next_key == -1:
+                        break
+                    self._handle_input(next_key)
+                except Exception:
+                    break
+            
+            # Restore timeout behavior
+            self.stdscr.nodelay(False)
+            self.stdscr.timeout(self.speed_ms)
+
+            # Apply one move from queue
+            if self.move_queue:
+                next_dir = self.move_queue.popleft()
+                # Double check validity against CURRENT direction (in case queue had multiples)
+                # But actually, we want to check against the direction we *will* be facing 
+                # after the previous queued move. 
+                # Since we only execute one move per tick, 'self.direction' IS the direction 
+                # from the previous tick. So checking against it is correct for the first item.
+                # However, if we simply set self.direction, the _advance_snake uses it.
+                if next_dir != OPPOSITES[self.direction] and next_dir != self.direction:
+                     self.direction = next_dir
+            
+            # Game Over / Pause / Quit logic handled inside _handle_input via flags? 
+            # No, 'P' and 'Q' should interrupt immediately or set a flag.
+            # Let's adjust _handle_input to return a command or handle it.
+            # Actually, the original code had distinct handling. 
+            # Let's revert to a simpler flow: pause/quit are immediate, optional moves are queued.
+            
+            # We need to detect if we should exit loop
+            if hasattr(self, '_should_quit') and self._should_quit:
+                self._should_quit = False
                 self._save_high_score()
                 return
 
             if not self._advance_snake():
+                self._crash_animation()
                 wants_retry = self._game_over_screen()
                 self._save_high_score()
                 if wants_retry:
@@ -250,9 +330,35 @@ class SnakeGame:
                     continue
                 return
 
-    def _maybe_turn(self, new_dir: Direction) -> None:
-        if new_dir != OPPOSITES[self.direction]:
-            self.direction = new_dir
+    def _handle_input(self, key: int) -> None:
+        if key in (curses.KEY_UP, ord("w")):
+            self._queue_move(UP)
+        elif key in (curses.KEY_DOWN, ord("s")):
+            self._queue_move(DOWN)
+        elif key in (curses.KEY_LEFT, ord("a")):
+            self._queue_move(LEFT)
+        elif key in (curses.KEY_RIGHT, ord("d")):
+            self._queue_move(RIGHT)
+        elif key in (ord("p"), ord("P")):
+            if not self._pause_screen():
+                self._should_quit = True
+        elif key in (ord("q"), ord("Q")):
+            self._should_quit = True
+            
+    def _queue_move(self, new_dir: Direction) -> None:
+        # Determine the reference direction for this new move.
+        # If the queue is empty, we check against current direction.
+        # If queue has items, we check against the LAST queued item.
+        if self.move_queue:
+            last_dir = self.move_queue[-1]
+        else:
+            last_dir = self.direction
+            
+        # Prevent 180 reverses and redundant moves
+        if new_dir != OPPOSITES[last_dir] and new_dir != last_dir:
+            # Limit queue size to prevent huge lag if user mashes keys
+            if len(self.move_queue) < 3:
+                self.move_queue.append(new_dir)
 
     def _advance_snake(self) -> bool:
         head_y, head_x = self.snake[0]
@@ -310,6 +416,14 @@ class SnakeGame:
             self.level += 1
             self.speed_ms = max(30, self.speed_ms - 7)
             self.obstacles.add(self._random_free_cell())
+            
+    def _crash_animation(self) -> None:
+        # Simple flash effect
+        curses.flash()
+        head_y, head_x = self.snake[0]
+        self.stdscr.addch(head_y, head_x, "X", curses.color_pair(self.COLOR_FOOD) | curses.A_BOLD | curses.A_BLINK)
+        self.stdscr.refresh()
+        time.sleep(0.5)
 
     def _pause_screen(self) -> bool:
         self.stdscr.nodelay(False)
@@ -330,9 +444,15 @@ class SnakeGame:
         message = "GAME OVER"
         summary = f"Score {self.score} | Level {self.level}"
         prompt = "Enter to retry  •  Q to menu"
-        self.stdscr.addstr(self.sh // 2 - 1, self.sw // 2 - len(message) // 2, message, curses.A_BOLD)
-        self.stdscr.addstr(self.sh // 2, self.sw // 2 - len(summary) // 2, summary)
-        self.stdscr.addstr(self.sh // 2 + 2, self.sw // 2 - len(prompt) // 2, prompt, curses.A_DIM)
+        
+        y = self.sh // 2
+        
+        self.stdscr.attron(curses.color_pair(self.COLOR_FOOD) | curses.A_BOLD)
+        self.stdscr.addstr(y - 1, self.sw // 2 - len(message) // 2, message)
+        self.stdscr.attroff(curses.color_pair(self.COLOR_FOOD) | curses.A_BOLD)
+        
+        self.stdscr.addstr(y, self.sw // 2 - len(summary) // 2, summary)
+        self.stdscr.addstr(y + 2, self.sw // 2 - len(prompt) // 2, prompt, curses.A_DIM)
         self.stdscr.refresh()
         while True:
             key = self.stdscr.getch()
